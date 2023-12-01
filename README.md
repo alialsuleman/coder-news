@@ -65,7 +65,8 @@ For secure user authentication, I implemented a custom JWT solution utilizing cr
 ### Token Creation and Verification:
 
 Implementation: Employed cryptographic libraries (crypto and base64url) to meticulously create and verify JSON Web Tokens (JWTs).
-Token Expiry Management:
+
+### Token Expiry Management:
 
 ### Implementation:
  Developed a  mechanism to manage token expiration efficiently.
