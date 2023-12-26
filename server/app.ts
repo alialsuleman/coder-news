@@ -11,104 +11,129 @@ import { PayloadObj, createSign } from './auth/JWT/createSign';
 import { verify1 } from './auth/JWT/Verify';
 import { verfiyToken } from './middlewares/verfiyToken';
 import { UserController } from './controllers/user.controllers';
-
-
-(async () => {
-
-    await initDb();
-    const postController = PostController.getPostController(db);
-    const userController = UserController.getUserController(db);
-
-    const app = express();
-
-    app.use(express.json());
+const http = require('http');
+const cluster = require('node:cluster') ; 
+const OS = require('node:os') ;
 
 
 
 
+if (cluster.isMaster)
+{
+        console.log('Hi  !! i am master with process id ' +  process.pid ) ;
+        let num_of_chiled =OS.cpus().length ;
+        while(num_of_chiled--)cluster.fork() ;
+        // 
+        cluster.on("exit", (worker, code, signal) => {
+            console.log(`worker ${worker.process.pid} died`)
+            cluster.fork() //forks a new process if any process dies
+        })
+
+}
+else {
+      console.log('Hi  !! i am child with process id ' +  process.pid ) ;
+       
+    (async () => {
+
+        await initDb();
+        const postController = PostController.getPostController(db);
+        const userController = UserController.getUserController(db);
+    
+        const app = express();
+    
+        app.use(express.json());
+    
+    
+    
+    
+    
+    
+    
+    
+        // user 
+        app.post('/login'
+            , loginValidation()
+            , checkBodyValidation
+            , asyncWrapper(userController.login));
+        app.post('/register'
+            , registerValidation()
+            , checkBodyValidation
+            , asyncWrapper(userController.createAcount));
+    
+    
+        // post 
+        app.use(verfiyToken, userController.isLogin);
+        app.get('/post/all', asyncWrapper(postController.listPosts));
+        app.get('/post/getpost/:id', asyncWrapper(postController.getPost));
+    
+        app.post('/post/create'
+            , createPostValidation()
+            , checkBodyValidation
+            , asyncWrapper(postController.createPost));
+    
+        app.get('/post/delete/:id', asyncWrapper(postController.deletePost));
+    
+    
+    
+    
+        // like 
+        app.post('/post/addorremovelike'
+            , addorremovelikeValidation()
+            , checkBodyValidation
+            , asyncWrapper(postController.AddOrRemoveLike));
+    
+        app.get('/post/listlike/:postId', asyncWrapper(postController.getListLike));
+    
+    
+    
+        // commment 
+        app.post('/post/addcomment'
+            , addcommentValidation()
+            , checkBodyValidation
+            , asyncWrapper(postController.addcomment));
+    
+        app.get('/post/listcomment/:postId', asyncWrapper(postController.listComment));
+    
+        app.get('/post/removecomment/:commentId', asyncWrapper(postController.removeComment));
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        //global middleware for not found router 
+        app.all('*', (req, res, next) => {
+            return res.status(404).json({
+                status: ERROR,
+                data: null,
+                message: "this resource not available"
+            });
+        })
+    
+    
+        //global middleware for error handler 
+        app.use((error: AppError, req: Request, res: Response, next: NextFunction) => {
+            console.log("error ", error.message);
+            return res.status(error.statusCode || 500).json({
+                status: error.statusText || "ERROR",
+                data: null,
+                message: error.message,
+                code: error.statusCode || 500
+            });
+        })
+    
+        app.listen(3000, () => console.log(`server Running in port 3000 🐱‍🐉`))
+
+    })();
 
 
 
+}
 
-    // user 
-    app.post('/login'
-        , loginValidation()
-        , checkBodyValidation
-        , asyncWrapper(userController.login));
-    app.post('/register'
-        , registerValidation()
-        , checkBodyValidation
-        , asyncWrapper(userController.createAcount));
-
-
-    // post 
-    app.use(verfiyToken, userController.isLogin);
-    app.get('/post/all', asyncWrapper(postController.listPosts));
-    app.get('/post/getpost/:id', asyncWrapper(postController.getPost));
-
-    app.post('/post/create'
-        , createPostValidation()
-        , checkBodyValidation
-        , asyncWrapper(postController.createPost));
-
-    app.get('/post/delete/:id', asyncWrapper(postController.deletePost));
-
-
-
-
-    // like 
-    app.post('/post/addorremovelike'
-        , addorremovelikeValidation()
-        , checkBodyValidation
-        , asyncWrapper(postController.AddOrRemoveLike));
-
-    app.get('/post/listlike/:postId', asyncWrapper(postController.getListLike));
-
-
-
-    // commment 
-    app.post('/post/addcomment'
-        , addcommentValidation()
-        , checkBodyValidation
-        , asyncWrapper(postController.addcomment));
-
-    app.get('/post/listcomment/:postId', asyncWrapper(postController.listComment));
-
-    app.get('/post/removecomment/:commentId', asyncWrapper(postController.removeComment));
-
-
-
-
-
-
-
-
-
-
-
-
-
-    //global middleware for not found router 
-    app.all('*', (req, res, next) => {
-        return res.status(404).json({
-            status: ERROR,
-            data: null,
-            message: "this resource not available"
-        });
-    })
-
-
-    //global middleware for error handler 
-    app.use((error: AppError, req: Request, res: Response, next: NextFunction) => {
-        console.log("error ", error.message);
-        return res.status(error.statusCode || 500).json({
-            status: error.statusText || "ERROR",
-            data: null,
-            message: error.message,
-            code: error.statusCode || 500
-        });
-    })
-
-    app.listen(3000, () => console.log(`server Running in port 3000 🐱‍🐉`))
-
-})();
